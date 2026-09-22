@@ -4,6 +4,7 @@
  * @property {string} [label]    accessible name of the link
  * @property {string} [text]     plain-text fallback shown without WebGL2 (default the first word)
  * @property {string[]} [words]  the words cycled through
+ * @property {string} [font]     CSS font-family for the text (default FONT_FAMILY)
  * @property {number} [bottom]   px from the bottom edge, or the safe-area inset if larger (default 16)
  * @property {number} [right]    px from the right edge, or the safe-area inset if larger (default 16)
  * @property {number} [zIndex]   (default 9)
@@ -39,6 +40,10 @@ export type OverlayOptions = {
      * the words cycled through
      */
     words?: string[] | undefined;
+    /**
+     * CSS font-family for the text (default FONT_FAMILY)
+     */
+    font?: string | undefined;
     /**
      * px from the bottom edge, or the safe-area inset if larger (default 16)
      */

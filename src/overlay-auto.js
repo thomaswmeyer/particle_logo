@@ -6,8 +6,8 @@
  *
  *   <script data-until="#start-screen" data-bottom="100">…dist/overlay.iife.js…</script>
  *
- * data-href, data-label, data-text, data-words (comma separated), data-bottom,
- * data-right, data-z, data-size and data-until map onto OverlayOptions.
+ * data-href, data-label, data-text, data-words (comma separated), data-font,
+ * data-bottom, data-right, data-z, data-size and data-until map onto OverlayOptions.
  */
 import { overlayInkMark } from './overlay.js';
 
@@ -15,7 +15,7 @@ const d = /** @type {HTMLElement | null} */ (document.currentScript)?.dataset ??
 /** @param {string | undefined} v */
 const num = (v) => (v === undefined || v === '' ? undefined : Number(v));
 overlayInkMark({
-  href: d.href, label: d.label, text: d.text,
+  href: d.href, label: d.label, text: d.text, font: d.font,
   words: d.words ? d.words.split(',').map((w) => w.trim()) : undefined,
   bottom: num(d.bottom), right: num(d.right), zIndex: num(d.z), size: d.size,
   until: d.until,

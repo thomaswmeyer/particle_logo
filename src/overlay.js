@@ -14,6 +14,7 @@ import { FONT_FAMILY, SIGNATURE, mountInkMark } from './inkmark.js';
  * @property {string} [label]    accessible name of the link
  * @property {string} [text]     plain-text fallback shown without WebGL2 (default the first word)
  * @property {string[]} [words]  the words cycled through
+ * @property {string} [font]     CSS font-family for the text (default FONT_FAMILY)
  * @property {number} [bottom]   px from the bottom edge, or the safe-area inset if larger (default 16)
  * @property {number} [right]    px from the right edge, or the safe-area inset if larger (default 16)
  * @property {number} [zIndex]   (default 9)
@@ -32,7 +33,7 @@ import { FONT_FAMILY, SIGNATURE, mountInkMark } from './inkmark.js';
 export function overlayInkMark(opts = {}) {
   const {
     href = 'https://tom.to/', label = "tom.to — the site of the game's author",
-    words, text = (words ?? [])[0] ?? 'tom.to',
+    words, text = (words ?? [])[0] ?? 'tom.to', font = FONT_FAMILY,
     bottom = 16, right = 16, zIndex = 9, size = 'clamp(28px, 6.5vmin, 48px)',
   } = opts;
   const until = typeof opts.until === 'string' ? document.querySelector(opts.until) : opts.until ?? null;
@@ -49,7 +50,7 @@ export function overlayInkMark(opts = {}) {
     + `right:max(${right}px,env(safe-area-inset-right,0px));`
     + `bottom:max(${bottom}px,env(safe-area-inset-bottom,0px));`
     + 'width:calc(var(--f)*5.3);height:calc(var(--f)*1.4);display:flex;align-items:center;'
-    + `justify-content:flex-end;font:600 var(--f)/1 ${FONT_FAMILY};color:rgba(255,255,255,.92);`
+    + `justify-content:flex-end;font:600 var(--f)/1 ${font};color:rgba(255,255,255,.92);`
     + 'text-decoration:none;cursor:pointer;user-select:none;-webkit-user-select:none;'
     + '-webkit-tap-highlight-color:transparent;transition:opacity .6s}'
     + '.inkmark-overlay.gone{opacity:0;pointer-events:none}'
@@ -73,7 +74,7 @@ export function overlayInkMark(opts = {}) {
   mark.append(span, canvas);
   document.body.append(mark);
 
-  const ink = mountInkMark({ ...SIGNATURE, wrap: mark, canvas, words });
+  const ink = mountInkMark({ ...SIGNATURE, wrap: mark, canvas, words, font });
 
   let watch = /** @type {MutationObserver | null} */ (null);
   let done = false;

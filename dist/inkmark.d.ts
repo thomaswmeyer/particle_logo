@@ -91,6 +91,10 @@ export type InkMarkOptions = {
      */
     words?: string[] | undefined;
     /**
+     * CSS font-family the text is set in (default: FONT_FAMILY)
+     */
+    font?: string | undefined;
+    /**
      * ink colour, 0..1 RGB (default: near-black)
      */
     ink?: [number, number, number] | undefined;

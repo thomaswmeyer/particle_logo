@@ -73,6 +73,7 @@ export const SIGNATURE = {
  * @property {HTMLElement[]} [nav]         link elements the flock inks labels over (default: none)
  * @property {'inline' | 'dock' | 'banner'} [mode]
  * @property {string[]} [words]            the words cycled through, in order (default: WORDS)
+ * @property {string} [font]               CSS font-family the text is set in (default: FONT_FAMILY)
  * @property {[number, number, number]} [ink]  ink colour, 0..1 RGB (default: near-black)
  * @property {number} [opacity]            overall ink opacity (default 1)
  * @property {'center' | 'left' | 'right'} [align]  where the word sits in its box (inline mode)
@@ -331,6 +332,7 @@ function boot(opts, canvas) {
   const wordEl = opts.word === undefined ? wrap : opts.word;
   const navEls = opts.nav ?? [];
   const CYCLE = opts.words?.length ? opts.words : WORDS;
+  const FAMILY = opts.font ?? FONT_FAMILY;
   const INK = opts.ink ?? [23 / 255, 19 / 255, 13 / 255];
   const OPACITY = opts.opacity ?? 1;
   const ALIGN = opts.align ?? 'center';
@@ -599,7 +601,7 @@ function boot(opts, canvas) {
    * @param {Face} face
    */
   function setFont(size, face) {
-    octx.font = `${WEIGHT[face]} ${size}px ${FONT_FAMILY}`;
+    octx.font = `${WEIGHT[face]} ${size}px ${FAMILY}`;
     try { octx.letterSpacing = face === 'word' ? '0em' : '0.08em'; } catch { /* older engines */ }
   }
   // Width of `text` per 1px of font size, cached.
