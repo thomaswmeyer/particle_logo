@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>particle_logo — the mark, three ways</title>
+<!-- The three places the mark appears, on one page, from one engine.
+     ?dist runs the built dist/ files instead of src/ (the smoke test does both). -->
+<style>
+  :root { --font: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Iowan Old Style', 'Hoefler Text', Georgia, serif; }
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #223; background: #fff; }
+  section { position: relative; max-width: 720px; margin: 3rem auto; padding: 0 16px; }
+  h2 { font-weight: 500; color: #667; }
+
+  /* 1. a site masthead: a word over a row of links, inline */
+  .inkmark { position: relative; width: 100%; margin: 1rem 0; }
+  .inkmark-word { height: 200px; display: flex; align-items: center; justify-content: center; }
+  .inkmark-fallback { font: 600 3.2rem var(--font); color: #0f1219; }
+  .inkmark.is-live .inkmark-fallback { display: none; }
+  .inkmark-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem 2.4rem; margin-top: .9rem; }
+  .inkmark-nav a { font: 700 1.18rem var(--font); letter-spacing: .08em; text-transform: uppercase; text-decoration: none; color: #0f1219; padding: .2rem .15rem; }
+  .inkmark.is-live .inkmark-nav a { color: transparent; }
+  .inkmark canvas { position: absolute; top: -200px; left: calc(50% - 50vw); width: 100vw; height: calc(100% + 400px); z-index: -1; display: block; }
+
+  /* 2. a game's splash: a signature in the artwork's corner, from the page's own markup */
+  .splash { height: 360px; background: linear-gradient(160deg, #1b2a4a, #3a1c3f 60%, #0b0f1a); border-radius: 12px; overflow: hidden; }
+  .splash-mark { --f: clamp(28px, 6.5vmin, 48px); position: absolute; right: 32px; bottom: 28px; width: calc(var(--f) * 5.3); height: calc(var(--f) * 1.4);
+    display: flex; align-items: center; justify-content: flex-end; font: 600 var(--f)/1 var(--font); color: rgba(255,255,255,.92); text-decoration: none; }
+  .splash-mark.is-live span { visibility: hidden; }
+  .splash-mark canvas { position: absolute; top: -80px; left: -80px; width: calc(100% + 160px); height: calc(100% + 160px); pointer-events: none; }
+  .splash button { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 600 1.1rem var(--font); padding: .6rem 1.6rem; border-radius: 999px; border: 0; background: #fff; }
+</style>
+</head>
+<body>
+
+<section>
+  <h2>1 · masthead</h2>
+  <div class="inkmark" id="masthead">
+    <canvas aria-hidden="true"></canvas>
+    <div class="inkmark-word" aria-hidden="true"><span class="inkmark-fallback">tom meyer</span></div>
+    <nav class="inkmark-nav" aria-label="Site">
+      <a href="/about/">About</a><a href="/blog/">Blog</a><a href="/games/">Games</a>
+    </nav>
+  </div>
+</section>
+
+<section>
+  <h2>2 · embedded in a game's splash</h2>
+  <div class="splash" id="splash">
+    <button type="button" id="play">Play</button>
+    <a class="splash-mark" id="splash-mark" href="https://tom.to/" aria-label="tom.to">
+      <span aria-hidden="true">tom.to</span>
+      <canvas aria-hidden="true"></canvas>
+    </a>
+  </div>
+</section>
+
+<section>
+  <h2>3 · overlay on a finished page</h2>
+  <p>Bottom right: the overlay, mounted by <code>overlayInkMark</code> with no markup of its own on this page.
+    It lives with the splash above and leaves when Play hides it.</p>
+</section>
+
+<script type="module">
+  const built = location.search.includes('dist');
+  const base = built ? '../dist/' : '../src/';
+  const { mountInkMark, SIGNATURE } = await import(base + 'inkmark.js');
+  const { overlayInkMark } = await import(base + 'overlay.js');
+
+  const masthead = document.getElementById('masthead');
+  const head = mountInkMark({
+    wrap: masthead,
+    word: masthead.querySelector('.inkmark-word'),
+    nav: [...masthead.querySelectorAll('.inkmark-nav a')],
+  });
+
+  const slot = document.getElementById('splash-mark');
+  const sig = mountInkMark({ ...SIGNATURE, wrap: slot });
+
+  const over = overlayInkMark({ until: '#splash', bottom: 100 });
+
+  document.getElementById('play').onclick = () => {
+    const splash = document.getElementById('splash');
+    splash.style.display = 'none';
+    sig?.destroy();
+  };
+  // for the smoke test
+  window.__inkmark = { head, sig, over };
+</script>
+</body>
+</html>

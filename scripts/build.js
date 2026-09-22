@@ -1,0 +1,158 @@
+#!/usr/bin/env node
+/**
+ * The build: src/ → dist/, the way Rainbow Balance squeezes its game.
+ *
+ *   npm run build            # build and report
+ *   npm run build -- --pack  # also dist/overlay.packed.js, through Roadroller
+ *
+ *   1. GLSL       every `#version 300 es` template literal goes through
+ *                 shader-minifier-js before esbuild sees the file; uniforms,
+ *                 attributes and varyings keep their names.
+ *   2. esbuild    bundle + minify.
+ *   3. terser     a second pass, mangling every property named with a leading
+ *                 underscore, which is why the source names internals that way
+ *                 (the public option and handle names have none).
+ *   4. Roadroller (--pack only) a context-mixing packer that self-extracts.
+ *                 It beats deflate on minified JS by a wide margin, so it is
+ *                 for a page that ships in a zip; a page served with brotli
+ *                 gains nothing from it, which is why it is not the default.
+ *
+ * Three outputs, all committed so a git-pinned install needs no build step:
+ *   dist/inkmark.js       the engine, ESM
+ *   dist/overlay.js       the overlay helper, ESM, importing ./inkmark.js
+ *   dist/overlay.iife.js  the overlay, self-contained, mounting itself when
+ *                         the script runs (options from its data attributes)
+ * plus the .d.ts files tsc derives from the JSDoc.
+ *
+ * The report gives each file raw, gzipped and brotli'd, which is what a page
+ * actually pays: a CDN serves brotli.
+ */
+
+import * as esbuild from 'esbuild';
+import { minify } from 'terser';
+import { brotliCompressSync, gzipSync, constants } from 'zlib';
+import { mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync } from 'fs';
+import { join, dirname, basename } from 'path';
+import { fileURLToPath } from 'url';
+import { execFileSync } from 'child_process';
+import { minifyGlsl, SHADER_TEMPLATE } from './glsl.js';
+
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const SRC = join(ROOT, 'src');
+const OUT = join(ROOT, 'dist');
+const pack = process.argv.includes('--pack');
+const fail = (msg) => { console.error(`[build] FAILED: ${msg}`); process.exit(1); };
+
+// ---------------------------------------------------------------------------
+// 1. GLSL, as an esbuild plugin so the minified shaders are what gets bundled
+// ---------------------------------------------------------------------------
+
+/** Shader bytes in and out, for the report. */
+const glslBytes = [0, 0];
+const glslPlugin = {
+    name: 'glsl',
+    setup(build) {
+        build.onLoad({ filter: /src[\\/].*\.js$/ }, (args) => {
+            const src = readFileSync(args.path, 'utf8');
+            const name = basename(args.path, '.js');
+            let n = 0;
+            const contents = src.replace(SHADER_TEMPLATE, (_, body) => {
+                glslBytes[0] += body.length;
+                const min = minifyGlsl(body, `${name}-${++n}`);
+                glslBytes[1] += min.length;
+                return '`' + min + '`';
+            });
+            return { contents, loader: 'js' };
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// 2 + 3. esbuild, then terser
+// ---------------------------------------------------------------------------
+
+/**
+ * The terser compress options Rainbow Balance ships with. Every option here
+ * has to keep strict comparisons meaning what they meant (`booleans_as_integers`
+ * did not). `drop_console` is off: the engine's console.error is how a shader
+ * that fails to compile on some driver gets reported.
+ */
+const COMPRESS = { passes: 3, unsafe: true, unsafe_math: true, unsafe_arrows: true };
+
+/**
+ * @param {string} entry   file under src/
+ * @param {'esm' | 'iife'} format
+ * @param {string[]} [external] imports left for the runtime to resolve
+ */
+async function bundle(entry, format, external = []) {
+    const r = await esbuild.build({
+        entryPoints: [join(SRC, entry)],
+        bundle: true, write: false, format, target: 'es2020', minify: true,
+        external, plugins: [glslPlugin], logLevel: 'warning',
+    });
+    if (r.warnings.length) fail(`esbuild reported warnings for ${entry}`);
+    const t = await minify(r.outputFiles[0].text, {
+        module: format === 'esm', ecma: 2020, compress: COMPRESS,
+        mangle: { properties: { regex: /^_/ } }, format: { comments: false },
+    });
+    if (!t.code) fail(`terser produced nothing for ${entry}`);
+    return { esbuild: r.outputFiles[0].text.length, code: t.code };
+}
+
+rmSync(OUT, { recursive: true, force: true });
+mkdirSync(OUT, { recursive: true });
+
+const rev = (() => {
+    try { return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
+    catch { return 'unknown'; }
+})();
+const banner = `// particle_logo @ ${rev}. Generated by scripts/build.js from src/, do not edit.\n`;
+
+const outputs = [
+    ['inkmark.js', await bundle('inkmark.js', 'esm')],
+    ['overlay.js', await bundle('overlay.js', 'esm', ['./inkmark.js'])],
+    ['overlay.iife.js', await bundle('overlay-auto.js', 'iife')],
+];
+for (const [file, { code }] of outputs) {
+    if (code.includes('</script')) fail(`${file} contains </script — appended inline it would end the tag early`);
+    writeFileSync(join(OUT, file), banner + code);
+}
+
+// ---------------------------------------------------------------------------
+// 4. Roadroller, on request
+// ---------------------------------------------------------------------------
+
+if (pack) {
+    const { Packer } = await import('roadroller');
+    const js = outputs[2][1].code;
+    const packer = new Packer([{ data: js, type: 'js', action: 'eval' }], {});
+    await packer.optimize(2);
+    const { firstLine, secondLine } = packer.makeDecoder();
+    const packed = firstLine + secondLine;
+    if (packed.includes('</script')) fail('packed payload contains </script');
+    writeFileSync(join(OUT, 'overlay.packed.js'), packed);
+}
+
+// ---------------------------------------------------------------------------
+// Types: tsc derives them from the JSDoc, so the src comments are the API docs
+// ---------------------------------------------------------------------------
+
+execFileSync(process.execPath, [join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', join(ROOT, 'tsconfig.json'), '--emitDeclarationOnly'], { stdio: 'inherit' });
+// the auto-mounting entry exports nothing; its declaration is an empty file
+rmSync(join(OUT, 'overlay-auto.d.ts'), { force: true });
+
+// --- report -----------------------------------------------------------------
+
+const brotli = (s) => brotliCompressSync(Buffer.from(s), { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length;
+const gzip = (s) => gzipSync(Buffer.from(s), { level: 9 }).length;
+const pad = (s, n) => String(s).padStart(n);
+console.log(`  ${'file'.padEnd(20)} ${pad('esbuild', 8)} ${pad('terser', 8)} ${pad('gzip', 7)} ${pad('brotli', 7)}`);
+for (const [file, { esbuild: eb, code }] of outputs) {
+    console.log(`  ${file.padEnd(20)} ${pad(eb, 8)} ${pad(code.length, 8)} ${pad(gzip(code), 7)} ${pad(brotli(code), 7)}`);
+}
+if (pack) {
+    const packed = readFileSync(join(OUT, 'overlay.packed.js'), 'utf8');
+    console.log(`  ${'overlay.packed.js'.padEnd(20)} ${pad('', 8)} ${pad(packed.length, 8)} ${pad(gzip(packed), 7)} ${pad(brotli(packed), 7)}`);
+}
+console.log(`  glsl ${glslBytes[1]} B (${((glslBytes[1] / glslBytes[0] - 1) * 100).toFixed(0)}% of ${glslBytes[0]} B raw)`);
+console.log(`[build] dist/: ${readdirSync(OUT).join(', ')}`);

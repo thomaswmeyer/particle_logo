@@ -1,0 +1,52 @@
+{
+  "name": "particle_logo",
+  "version": "1.0.0",
+  "description": "The tom.to identity mark: a WebGL flock of brush strokes that forms a wordmark, for a site masthead, a game's splash, or an overlay on a finished page",
+  "type": "module",
+  "license": "MIT",
+  "author": "Tom Meyer <tom@tom.to> (http://tom.to/)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thomaswmeyer/particle_logo.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "sideEffects": [
+    "./src/overlay-auto.js"
+  ],
+  "types": "./dist/inkmark.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/inkmark.d.ts",
+      "development": "./src/inkmark.js",
+      "default": "./dist/inkmark.js"
+    },
+    "./overlay": {
+      "types": "./dist/overlay.d.ts",
+      "development": "./src/overlay.js",
+      "default": "./dist/overlay.js"
+    },
+    "./dist/*": "./dist/*",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "node scripts/build.js",
+    "build:pack": "node scripts/build.js --pack",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.js",
+    "demo": "node test/serve.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "playwright": "^1.63.0",
+    "roadroller": "^2.1.0",
+    "shader-minifier-js": "github:thomaswmeyer/shader-minifier-js#014ae0185e49215619802cffa7d5d02d96869e68",
+    "terser": "^5.51.2",
+    "typescript": "^5.8.0"
+  }
+}
